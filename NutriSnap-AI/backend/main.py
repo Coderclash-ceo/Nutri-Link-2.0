@@ -48,14 +48,19 @@ async def analyze_food(file: UploadFile = File(...), user_id: str = "demo_user")
     Receives an image, processing it via AI, 
     saves to Firebase, and syncs with Fitness Platform.
     """
+    print(f"\n[DEBUG] Analysis Request Received: user_id={user_id}, filename={file.filename}")
     
-    # 1. Save temp file
-    temp_filename = f"temp_{file.filename}"
+    # 1. Save temp file - Sanitize filename for Windows (remove colons from ISO timestamps)
+    safe_filename = file.filename.replace(":", "-").replace(" ", "_")
+    temp_filename = f"temp_{safe_filename}"
+    print(f"[DEBUG] Saving temp file: {temp_filename}")
     with open(temp_filename, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
+    print(f"[DEBUG] Calling AI Analysis...")
     # 2. Call AI
     ai_result = analyze_food_image(temp_filename)
+    print(f"[DEBUG] AI Analysis Result: {ai_result}")
     # Use Groq result if available; on error return HTTP 502
     if "error" in ai_result:
         print(f"AI Error: {ai_result.get('error')}")
@@ -64,7 +69,13 @@ async def analyze_food(file: UploadFile = File(...), user_id: str = "demo_user")
     # Build nutrition model from AI result
     nutrition_data = ai_result
     nutrition_info = NutritionInfo(**nutrition_data)
-    final_message = "Food analyzed successfully"
+    
+    if not nutrition_info.is_food:
+        final_message = "No food detected. Please try again with a clearer image of your meal."
+    elif nutrition_info.confidence < 0.6:
+        final_message = f"We identified this as {nutrition_info.food_name}, but the image was a bit {nutrition_info.unclear_reason or 'unclear'}. Please verify if this is correct."
+    else:
+        final_message = "Food analyzed successfully"
 
     # 3. Store in Firebase
 
@@ -80,6 +91,71 @@ async def analyze_food(file: UploadFile = File(...), user_id: str = "demo_user")
                 u'timestamp': datetime.now(),
                 u'nutrition': nutrition_info.dict()
             })
+            
+            # Update user food memories
+            try:
+                from backend.memory_manager import memory_manager
+                from backend.pattern_analyzer import PatternAnalyzer
+                
+                # Update frequency memory
+                memory_manager.update_frequency_memory(
+                    user_id=user_id,
+                    food_name=PatternAnalyzer.normalize_food_name(nutrition_info.food_name),
+                    nutrition_data={
+                        'calories': nutrition_info.calories,
+                        'protein_g': nutrition_info.protein_g,
+                        'carbs_g': nutrition_info.carbs_g,
+                        'fats_g': nutrition_info.fats_g
+                    }
+                )
+                
+                # Update timing pattern based on current time
+                current_hour = datetime.now().hour
+                if 5 <= current_hour < 11:
+                    meal_type = "breakfast"
+                elif 11 <= current_hour < 16:
+                    meal_type = "lunch"
+                elif 16 <= current_hour < 19:
+                    meal_type = "snack"
+                else:
+                    meal_type = "dinner"
+                
+                memory_manager.update_timing_pattern(
+                    user_id=user_id,
+                    meal_type=meal_type,
+                    food_name=PatternAnalyzer.normalize_food_name(nutrition_info.food_name),
+                    time_str=datetime.now().strftime("%H:%M")
+                )
+                
+                # Check if eating limit reached
+                limit_check = memory_manager.check_eating_limit(
+                    user_id=user_id,
+                    food_name=PatternAnalyzer.normalize_food_name(nutrition_info.food_name)
+                )
+                
+                if limit_check and limit_check.get("reached"):
+                    # Store notification in Firebase for persistent display
+                    try:
+                        notif_ref = db.collection(u'notifications').document()
+                        notif_ref.set({
+                            u'user_id': user_id,
+                            u'type': u'limit_reached',
+                            u'title': u'Eating Limit Reached',
+                            u'message': limit_check.get('message'),
+                            u'timestamp': datetime.now(),
+                            u'unread': True,
+                            u'food_name': limit_check.get('food'),
+                            u'count': limit_check.get('count')
+                        })
+                        print(f"🔔 Limit notification created for {user_id}: {limit_check.get('message')}")
+                    except Exception as notif_error:
+                        print(f"Warning: Could not create notification: {notif_error}")
+                
+                print(f"✓ Updated food memories for {user_id}")
+            except Exception as mem_error:
+                print(f"Warning: Could not update memories: {mem_error}")
+                # Continue even if memory update fails
+                
     except Exception as e:
         print(f"\n[WARNING] Database Write Failed: {e}")
         print("Continuing without saving to DB (Hackathon Mode)\n")
@@ -105,7 +181,8 @@ async def analyze_food(file: UploadFile = File(...), user_id: str = "demo_user")
 @app.post("/analyze_debug")
 async def analyze_food_debug(file: UploadFile = File(...), user_id: str = "demo_user"):
     """Debug endpoint that returns raw AI output (no parsing) for troubleshooting."""
-    temp_filename = f"temp_{file.filename}"
+    safe_filename = file.filename.replace(":", "-").replace(" ", "_")
+    temp_filename = f"temp_{safe_filename}"
     with open(temp_filename, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
@@ -234,40 +311,47 @@ async def chat_with_ai(user_id: str, request: ChatRequest):
         raise HTTPException(status_code=503, detail="Database not initialized")
         
     try:
-        # 1. Fetch recent history for context
-        logs_ref = db.collection(u'food_logs')
+        from backend.memory_manager import memory_manager
+        from ai_core.prompts import PERSONALIZED_CHAT_PROMPT
+        
+        # 1. Load user memories
+        memories = memory_manager.get_user_memories(user_id)
+        memory_context = memory_manager.format_memories_for_ai(memories)
+        
+        # 2. Fetch recent chat history for conversation context
+        chat_ref = db.collection(u'chats')
         try:
-            docs = logs_ref.where(u'user_id', u'==', user_id).order_by(u'timestamp', direction=firestore.Query.DESCENDING).limit(5).stream()
-            history_context = []
-            for doc in docs:
-                data = doc.to_dict()
-                food_name = data.get('food_name', 'Unknown')
-                calories = data.get('calories', 0)
-                history_context.append(f"{food_name} ({calories} kcal)")
+            recent_chats = chat_ref.where(u'user_id', u'==', user_id).order_by(u'timestamp', direction=firestore.Query.DESCENDING).limit(10).stream()
+            conversation_history = []
+            for chat in recent_chats:
+                chat_data = chat.to_dict()
+                role = chat_data.get('role', 'user')
+                content = chat_data.get('content', '')
+                conversation_history.append(f"{role}: {content}")
+            conversation_history.reverse()  # Chronological order
         except Exception as e:
-            print(f"Firestore ordered query failed (likely missing index): {e}")
-            # Fallback to simple query
-            docs = logs_ref.where(u'user_id', u'==', user_id).limit(5).stream()
-            history_context = []
-            for doc in docs:
-                data = doc.to_dict()
-                food_name = data.get('food_name', 'Unknown')
-                calories = data.get('calories', 0)
-                history_context.append(f"{food_name} ({calories} kcal)")
-            
-        context_str = ", ".join(history_context) if history_context else "No meals logged yet."
-
-        # 2. Build prompt
-        prompt = f"""
-        You are NutriChat, an AI health assistant.
-        User's recent food history: {context_str}
+            print(f"Error loading chat history: {e}")
+            conversation_history = []
         
-        User's question: {request.message}
+        conversation_str = "\n".join(conversation_history[-6:]) if conversation_history else "This is the start of the conversation."
         
-        Provide a helpful, concise response. If they ask about their history, refer to the data provided above.
-        Be scientific but friendly.
-        """
+        # 3. Get user name from Firebase
+        try:
+            user_ref = db.collection(u'users').document(user_id)
+            user_doc = user_ref.get()
+            user_name = user_doc.to_dict().get('full_name', 'User') if user_doc.exists else 'User'
+        except:
+            user_name = 'User'
         
+        # 4. Build personalized prompt
+        prompt = PERSONALIZED_CHAT_PROMPT.format(
+            user_name=user_name,
+            user_memories=memory_context,
+            conversation_history=conversation_str,
+            user_message=request.message
+        )
+        
+        # 5. Generate AI response
         ai_response = generate_text(prompt)
         
         # 3. Store in Firebase

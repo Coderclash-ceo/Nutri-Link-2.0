@@ -74,12 +74,6 @@ const Header: React.FC<HeaderProps> = ({ title, showBack }) => {
                     </button>
                 ) : (
                     <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/capture")}>
-                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center glow-primary">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-primary-foreground">
-                                <path d="M12 2C13.5 2 15 3.5 15 5C15 6.5 14 8 12 8C10 8 9 6.5 9 5C9 3.5 10.5 2 12 2Z" fill="currentColor" />
-                                <path d="M12 8C8 8 6 12 6 16C6 20 8 22 12 22C16 22 18 20 18 16C18 12 16 8 12 8Z" fill="currentColor" />
-                            </svg>
-                        </div>
                         <div>
                             <span className="font-semibold text-foreground">NutriLink</span>
                             <span className="text-[10px] text-muted-foreground block -mt-1 uppercase tracking-wider">Premium AI</span>

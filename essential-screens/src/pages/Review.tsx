@@ -20,13 +20,15 @@ const Review = () => {
   // State to hold analysis results to pass to next screen
   const [analysisResult, setAnalysisResult] = React.useState<any>(null);
 
-  // Helper function: Analyze image (send to API)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const analyzeImage = async () => {
     try {
+      setErrorMessage(null);
       // Send image file to backend
       const file: File | undefined = location.state?.file;
       if (!file) {
         setStatus('error');
+        setErrorMessage("No image file found. Please go back and try again.");
         return;
       }
 
@@ -38,10 +40,12 @@ const Review = () => {
         setStatus('success');
       } else {
         setStatus('error');
+        setErrorMessage("The AI returned an invalid response.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis failed:", error);
       setStatus('error');
+      setErrorMessage(error.message || "Failed to reach the analysis server.");
     }
   };
 
@@ -141,7 +145,7 @@ const Review = () => {
           {status === 'error' && (
             <div className="animate-slide-up">
               <h2 className="text-xl font-semibold text-destructive mb-1">Scan Failed</h2>
-              <p className="text-muted-foreground text-sm">Could not identify valid food.</p>
+              <p className="text-muted-foreground text-sm">{errorMessage || "Could not identify valid food."}</p>
             </div>
           )}
         </div>

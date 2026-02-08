@@ -13,6 +13,8 @@ class NutritionInfo(BaseModel):
     carbs_g: float
     fats_g: float
     confidence: float
+    is_food: Optional[bool] = True
+    unclear_reason: Optional[str] = None
 
 class AnalysisResponse(BaseModel):
     nutrition: NutritionInfo

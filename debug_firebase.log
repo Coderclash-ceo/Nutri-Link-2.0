@@ -1,0 +1,36 @@
+
+--- 2026-02-08 11:45:04.533539 ---
+CWD: E:\Stack smasher
+FIREBASE_CREDENTIALS_PATH: ./firebase_credentials.json
+File exists? False
+DB Object initialized: False
+
+--- 2026-02-08 11:46:43.339934 ---
+CWD: E:\Stack smasher
+FIREBASE_CREDENTIALS_PATH: ./firebase_credentials.json
+File exists? False
+DB Object initialized: False
+
+--- 2026-02-08 11:48:04.133210 ---
+CWD: E:\Stack smasher
+FIREBASE_CREDENTIALS_PATH: ./NutriSnap-AI/firebase_credentials.json
+File exists? True
+DB Object initialized: True
+
+--- 2026-02-08 12:09:39.757508 ---
+CWD: E:\Stack smasher
+FIREBASE_CREDENTIALS_PATH: ./NutriSnap-AI/firebase_credentials.json
+File exists? True
+DB Object initialized: True
+
+--- 2026-02-08 12:09:45.965800 ---
+CWD: E:\Stack smasher
+FIREBASE_CREDENTIALS_PATH: ./NutriSnap-AI/firebase_credentials.json
+File exists? True
+DB Object initialized: True
+
+--- 2026-02-08 12:13:16.634756 ---
+CWD: E:\Stack smasher
+FIREBASE_CREDENTIALS_PATH: ./NutriSnap-AI/firebase_credentials.json
+File exists? True
+DB Object initialized: True
