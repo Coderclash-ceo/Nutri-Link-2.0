@@ -29,20 +29,21 @@ def analyze_food_image(image_path):
         available_models = []
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
-                # Remove 'models/' prefix if present
                 model_name = m.name.replace('models/', '')
-                available_models.append(model_name)
+                if not any(ex in model_name for ex in ['gemini-2.5-flash', 'tts']):
+                    available_models.append(model_name)
         
-        # Prioritize flash models for speed
-        models_to_try = [m for m in available_models if 'flash' in m.lower()][:3]
+        flash_latest = [m for m in available_models if 'flash-latest' in m.lower()]
+        other_models = [m for m in available_models if m not in flash_latest]
+        models_to_try = flash_latest + other_models
         if not models_to_try:
-            models_to_try = available_models[:3]  # Fallback to first 3
+            models_to_try = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro']
             
         print(f"Available models to try: {models_to_try}")
     except Exception as e:
         print(f"Warning: Could not fetch models dynamically: {e}")
         # Fallback to known models
-        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro']
+        models_to_try = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro']
 
     # Safer File Handling: Read bytes -> Memory
     import io
@@ -94,10 +95,19 @@ def generate_text(prompt):
     # Dynamically find available text models
     try:
         models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # Prioritize flash
-        models_to_try = [m for m in models if 'flash' in m.lower()] + [m for m in models if 'pro' in m.lower()]
-    except:
-        models_to_try = ['models/gemini-1.5-flash', 'gemini-1.5-flash', 'models/gemini-1.5-pro']
+        # Filter out deprecated/audio-only models
+        excluded = ['gemini-2.5-flash', 'gemini-2.5-flash-preview-tts']
+        valid_models = [m for m in models if not any(ex in m for ex in excluded)]
+        
+        # Make 'gemini-flash-latest' the first model tried
+        flash_latest = [m for m in valid_models if 'flash-latest' in m.lower()]
+        other_models = [m for m in valid_models if m not in flash_latest]
+        
+        models_to_try = flash_latest + other_models
+        if not models_to_try:
+            models_to_try = ['models/gemini-flash-latest', 'models/gemini-1.5-flash', 'models/gemini-1.5-pro']
+    except Exception:
+        models_to_try = ['models/gemini-flash-latest', 'models/gemini-1.5-flash', 'models/gemini-1.5-pro']
 
     for model_name in models_to_try:
         try:
@@ -124,9 +134,13 @@ def analyze_audio(audio_bytes, mime_type="audio/wav", prompt=""):
     # Dynamically find available models
     try:
         models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        models_to_try = [m for m in models if 'flash' in m.lower()] + [m for m in models if 'pro' in m.lower()]
+        excluded = ['gemini-2.5-flash']
+        valid_models = [m for m in models if not any(ex in m for ex in excluded)]
+        flash_latest = [m for m in valid_models if 'flash-latest' in m.lower()]
+        other_models = [m for m in valid_models if m not in flash_latest]
+        models_to_try = flash_latest + other_models
     except:
-        models_to_try = ['models/gemini-1.5-flash', 'gemini-1.5-pro-002']
+        models_to_try = ['models/gemini-flash-latest', 'models/gemini-1.5-flash']
 
     for model_name in models_to_try:
         try:
