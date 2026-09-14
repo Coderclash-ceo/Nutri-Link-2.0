@@ -27,50 +27,44 @@ def initialize_firebase():
     """Initializes Firebase Admin SDK and returns Firestore client.
 
     Supports either:
-    - `FIREBASE_CREDENTIALS_PATH` pointing to a JSON file, or
-    - `FIREBASE_CREDENTIALS_JSON` containing the JSON payload (raw or base64 encoded).
+    - `FIREBASE_SERVICE_ACCOUNT_JSON` containing the raw JSON service account payload, or
+    - `serviceAccountKey.json` file on disk for local development.
     """
-    cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "serviceAccountKey.json")
-    cred_json_env = os.getenv("FIREBASE_CREDENTIALS_JSON")
-
-    try:
-        if not firebase_admin._apps:
-            # Prefer direct JSON env var (allows secrets managers / deployments)
-            if cred_json_env:
-                try:
-                    # Try base64 decode first, fall back to raw JSON
-                    decoded = None
-                    try:
-                        decoded_bytes = base64.b64decode(cred_json_env)
-                        decoded_str = decoded_bytes.decode("utf-8")
-                        # validate
-                        json.loads(decoded_str)
-                        decoded = decoded_str
-                    except Exception:
-                        # treat as raw JSON
-                        json.loads(cred_json_env)
-                        decoded = cred_json_env
-
-                    temp_path = _write_temp_cred_file(decoded)
-                    cred = credentials.Certificate(temp_path)
-                    firebase_admin.initialize_app(cred)
-                    print(f"Firebase initialized successfully from FIREBASE_CREDENTIALS_JSON (temp file: {temp_path})")
-                except Exception as e:
-                    print(f"Failed to initialize Firebase from FIREBASE_CREDENTIALS_JSON: {e}")
-                    return None
-            elif os.path.exists(cred_path):
-                cred = credentials.Certificate(cred_path)
-                firebase_admin.initialize_app(cred)
-                print(f"Firebase initialized successfully with {cred_path}")
-            else:
-                print(f"WARNING: {cred_path} not found and FIREBASE_CREDENTIALS_JSON not set. Firebase not initialized.")
-                return None
-
-        # This part only runs if initialization succeeded or already existed
+    if firebase_admin._apps:
         return firestore.client()
-    except Exception as e:
-        print(f"Firebase Critical Error: {e}")
-        return None
+
+    # 1. Check for environment variable (Production / Render)
+    raw_json_env = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON") or os.getenv("FIREBASE_CREDENTIALS_JSON")
+    if raw_json_env:
+        try:
+            try:
+                cred_dict = json.loads(raw_json_env)
+            except Exception:
+                # Try base64 decode if encoded
+                decoded_bytes = base64.b64decode(raw_json_env)
+                cred_dict = json.loads(decoded_bytes.decode("utf-8"))
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("Firebase initialized successfully from FIREBASE_SERVICE_ACCOUNT_JSON env var.")
+            return firestore.client()
+        except Exception as e:
+            print(f"Failed to initialize Firebase from environment variable: {e}")
+            return None
+
+    # 2. Fallback to local file (Local Development)
+    cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "serviceAccountKey.json")
+    if os.path.exists(cred_path):
+        try:
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+            print(f"Firebase initialized successfully with {cred_path}")
+            return firestore.client()
+        except Exception as e:
+            print(f"Failed to initialize Firebase from {cred_path}: {e}")
+            return None
+
+    print("WARNING: Neither FIREBASE_SERVICE_ACCOUNT_JSON nor serviceAccountKey.json found. Firebase not initialized.")
+    return None
 
 
 # Initialize on module load

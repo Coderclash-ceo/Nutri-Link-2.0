@@ -1,3 +1,4 @@
+import os
 from backend.main import app
 
 # This file acts as a proxy for deployment platforms (like Render or Vercel)
@@ -5,4 +6,5 @@ from backend.main import app
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

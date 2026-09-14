@@ -34,3 +34,21 @@ CWD: E:\Stack smasher
 FIREBASE_CREDENTIALS_PATH: ./NutriSnap-AI/firebase_credentials.json
 File exists? True
 DB Object initialized: True
+
+--- 2026-09-14 11:17:23.298811 ---
+CWD: C:\Users\kashy\OneDrive\Desktop\Nutri Link\Stack-smashers
+FIREBASE_CREDENTIALS_PATH: None
+File exists? False
+DB Object initialized: True
+
+--- 2026-09-14 11:24:55.979418 ---
+CWD: C:\Users\kashy\OneDrive\Desktop\Nutri Link\Stack-smashers
+FIREBASE_CREDENTIALS_PATH: None
+File exists? False
+DB Object initialized: True
+
+--- 2026-09-14 11:35:04.984083 ---
+CWD: C:\Users\kashy\OneDrive\Desktop\Nutri Link\Stack-smashers
+FIREBASE_CREDENTIALS_PATH: None
+File exists? False
+DB Object initialized: True

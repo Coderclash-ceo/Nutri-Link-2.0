@@ -21,7 +21,11 @@ build/
 
 # Firebase
 firebase_credentials.json
+serviceAccountKey.json
 
 # System files
 .DS_Store
 Thumbs.db
+*.log
+temp_*
+
