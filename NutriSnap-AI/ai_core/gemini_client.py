@@ -29,26 +29,13 @@ def analyze_food_image(image_path):
         
     genai.configure(api_key=api_key)
 
-    # Dynamically get available vision models
-    try:
-        available_models = []
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                model_name = m.name.replace('models/', '')
-                if not any(ex in model_name for ex in ['gemini-2.5-flash', 'tts']):
-                    available_models.append(model_name)
-        
-        flash_latest = [m for m in available_models if 'flash-latest' in m.lower()]
-        other_models = [m for m in available_models if m not in flash_latest]
-        models_to_try = flash_latest + other_models
-        if not models_to_try:
-            models_to_try = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro']
-            
-        print(f"Available models to try: {models_to_try}")
-    except Exception as e:
-        print(f"Warning: Could not fetch models dynamically: {e}")
-        # Fallback to known models
-        models_to_try = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro']
+    # Fast vision models prioritizing high quota (1,500 RPD) models
+    models_to_try = [
+        'models/gemini-flash-lite-latest',
+        'models/gemini-1.5-flash',
+        'models/gemini-flash-latest',
+        'models/gemini-1.5-pro'
+    ]
 
     # Safer File Handling: Read bytes -> Memory
     import io
