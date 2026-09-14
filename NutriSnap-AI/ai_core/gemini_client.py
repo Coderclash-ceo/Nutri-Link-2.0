@@ -1,6 +1,7 @@
 import google.generativeai as genai
 import os
 import json
+import time
 from dotenv import load_dotenv
 from ai_core.prompts import NUTRITION_PROMPT
 from PIL import Image
@@ -10,6 +11,10 @@ load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
 if API_KEY:
     genai.configure(api_key=API_KEY)
+
+# Module-level cache for model listings (1 hour TTL)
+_cached_models = None
+_cache_time = None
 
 def analyze_food_image(image_path):
     """
@@ -85,6 +90,7 @@ def generate_text(prompt):
     """
     Sends text prompt to Gemini and returns string response.
     """
+    global _cached_models, _cache_time
     load_dotenv(override=True)
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
@@ -92,7 +98,31 @@ def generate_text(prompt):
         
     genai.configure(api_key=api_key)
     
-    models_to_try = ['models/gemini-flash-latest', 'models/gemini-1.5-flash', 'models/gemini-1.5-pro']
+    # 1-hour cached model lookup
+    now = time.time()
+    if _cached_models is None or _cache_time is None or (now - _cache_time > 3600):
+        try:
+            models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            # Exclude anything with 'pro' or 'preview-tts' in the name
+            valid_models = [m for m in models if not any(ex in m.lower() for ex in ['pro', 'preview-tts'])]
+            
+            # Prioritize 'flash-lite' first, then 'flash'
+            flash_lite = [m for m in valid_models if 'flash-lite' in m.lower()]
+            flash_others = [m for m in valid_models if 'flash' in m.lower() and m not in flash_lite]
+            remaining = [m for m in valid_models if m not in flash_lite and m not in flash_others]
+            
+            models_to_try = flash_lite + flash_others + remaining
+            if not models_to_try:
+                models_to_try = ['models/gemini-flash-lite-latest', 'models/gemini-flash-latest']
+                
+            _cached_models = models_to_try
+            _cache_time = now
+        except Exception as e:
+            print(f"Warning: Could not fetch models dynamically: {e}")
+            _cached_models = ['models/gemini-flash-lite-latest', 'models/gemini-flash-latest']
+            _cache_time = now
+            
+    models_to_try = _cached_models if _cached_models else ['models/gemini-flash-lite-latest', 'models/gemini-flash-latest']
 
     for model_name in models_to_try:
         try:
