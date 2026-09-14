@@ -92,22 +92,7 @@ def generate_text(prompt):
         
     genai.configure(api_key=api_key)
     
-    # Dynamically find available text models
-    try:
-        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # Filter out deprecated/audio-only models
-        excluded = ['gemini-2.5-flash', 'gemini-2.5-flash-preview-tts']
-        valid_models = [m for m in models if not any(ex in m for ex in excluded)]
-        
-        # Make 'gemini-flash-latest' the first model tried
-        flash_latest = [m for m in valid_models if 'flash-latest' in m.lower()]
-        other_models = [m for m in valid_models if m not in flash_latest]
-        
-        models_to_try = flash_latest + other_models
-        if not models_to_try:
-            models_to_try = ['models/gemini-flash-latest', 'models/gemini-1.5-flash', 'models/gemini-1.5-pro']
-    except Exception:
-        models_to_try = ['models/gemini-flash-latest', 'models/gemini-1.5-flash', 'models/gemini-1.5-pro']
+    models_to_try = ['models/gemini-flash-latest', 'models/gemini-1.5-flash', 'models/gemini-1.5-pro']
 
     for model_name in models_to_try:
         try:

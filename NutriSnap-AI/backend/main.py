@@ -352,7 +352,7 @@ async def chat_with_ai(user_id: str, request: ChatRequest):
         )
         
         # 5. Generate AI response
-        ai_response = generate_text(prompt)
+        ai_response = generate_text(prompt).strip(' \t\n\r"')
         
         # 3. Store in Firebase
         try:
