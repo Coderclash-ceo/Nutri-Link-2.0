@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 # Force reload to pick up new .env changes
-from backend.models import AnalysisResponse, NutritionInfo, ChatRequest, UserRegister, UserLogin
+from backend.models import AnalysisResponse, NutritionInfo, ChatRequest, UserRegister, UserLogin, GoogleAuthRequest
 from backend.integration import FitnessIntegration
 from backend.firebase_utils import db
 from datetime import datetime
@@ -547,3 +547,35 @@ async def login_user(user: UserLogin):
         "user_id": user_docs[0].id,
         "full_name": user_data.get("full_name")
     }
+
+@app.post("/google-auth")
+async def google_auth_user(data: GoogleAuthRequest):
+    if not db:
+        raise HTTPException(status_code=503, detail="Database not initialized")
+    
+    users_ref = db.collection("users")
+    user_docs = users_ref.where("email", "==", data.email).limit(1).get()
+    
+    if user_docs:
+        # Existing Google or email user
+        doc = user_docs[0]
+        return {
+            "message": "Google Sign-In successful",
+            "user_id": doc.id,
+            "full_name": doc.to_dict().get("full_name", data.full_name)
+        }
+    else:
+        # Register new Google user
+        new_user_ref = users_ref.document()
+        new_user_ref.set({
+            "full_name": data.full_name,
+            "email": data.email,
+            "google_id": data.google_id or new_user_ref.id,
+            "auth_provider": "google",
+            "created_at": datetime.now()
+        })
+        return {
+            "message": "Google account registered successfully",
+            "user_id": new_user_ref.id,
+            "full_name": data.full_name
+        }

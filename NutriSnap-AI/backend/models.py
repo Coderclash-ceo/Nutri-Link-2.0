@@ -32,3 +32,9 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     email: str
     password: str
+
+class GoogleAuthRequest(BaseModel):
+    email: str
+    full_name: str
+    google_id: Optional[str] = None
+    credential: Optional[str] = None

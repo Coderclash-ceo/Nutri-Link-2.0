@@ -105,3 +105,13 @@ export async function login(credentials: any) {
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
+
+export async function googleAuth(googleData: { email: string; full_name: string; google_id?: string; credential?: string }) {
+  const res = await fetch(`${BACKEND_URL}/google-auth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(googleData),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { login } from "../lib/api";
 import { toast } from "../hooks/use-toast";
+import GoogleAuthButton from "../components/GoogleAuthButton";
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -103,10 +104,21 @@ const SignIn = () => {
             {isLoading ? <Loader2 className="animate-spin" size={20} /> : "Sign In"}
           </button>
 
+          <div className="relative w-full my-4 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-white/10" />
+            </div>
+            <span className="relative bg-[#0a0f0a] px-3 text-[10px] uppercase tracking-widest text-white/40 font-bold">
+              OR
+            </span>
+          </div>
+
+          <GoogleAuthButton label="Sign in with Google" />
+
           <button
             type="button"
             onClick={() => navigate("/signup")}
-            className="w-full bg-transparent border border-white/5 text-white/60 font-medium py-4 rounded-full hover:bg-white/5 hover:text-white transition-all text-sm"
+            className="w-full bg-transparent border border-white/5 text-white/60 font-medium py-4 rounded-full hover:bg-white/5 hover:text-white transition-all text-sm mt-2"
           >
             Create Account
           </button>
